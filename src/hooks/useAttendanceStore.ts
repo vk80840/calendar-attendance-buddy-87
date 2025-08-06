@@ -80,7 +80,10 @@ export const useAttendanceStore = () => {
 
     monthData.forEach(([_, status]) => {
       stats[status]++;
-      stats.total++;
+      // Only count present and absent for total working days
+      if (status === 'present' || status === 'absent') {
+        stats.total++;
+      }
     });
 
     return stats;
@@ -97,7 +100,10 @@ export const useAttendanceStore = () => {
 
     Object.values(attendanceData).forEach(status => {
       stats[status]++;
-      stats.total++;
+      // Only count present and absent for total working days
+      if (status === 'present' || status === 'absent') {
+        stats.total++;
+      }
     });
 
     return stats;
@@ -105,7 +111,7 @@ export const useAttendanceStore = () => {
 
   const getTargetProgress = (): TargetProgress => {
     const stats = getOverallStats();
-    const workingDays = stats.present + stats.absent + stats.leave; // Exclude holidays
+    const workingDays = stats.total; // Only present + absent count
     const percentage = workingDays > 0 ? (stats.present / workingDays) * 100 : 0;
     
     // Calculate days needed to reach target

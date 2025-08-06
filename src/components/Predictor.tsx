@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, RotateCcw, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
+import { Calculator, RotateCcw, TrendingUp, Calendar as CalendarIcon, Target, BarChart3 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import PredictionCalendar from './PredictionCalendar';
 import { useAttendanceStore } from '@/hooks/useAttendanceStore';
 
@@ -19,6 +19,9 @@ interface PredictionResult {
   confidenceScore: number;
   isAchievable: boolean;
   recommendations: string[];
+  leavesAvailable: number;
+  presentNeeded: number;
+  weeklyPresentNeeded: number;
 }
 
 const Predictor = () => {
@@ -31,30 +34,31 @@ const Predictor = () => {
   } = useAttendanceStore();
 
   const [predictionTarget, setPredictionTarget] = useState(target);
+  const [targetDate, setTargetDate] = useState('2026-03-31');
   const [includePreviousData, setIncludePreviousData] = useState(true);
-  const [customHolidays, setCustomHolidays] = useState<string[]>([]);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
-  const [simulationDays, setSimulationDays] = useState('');
-  const [simulationType, setSimulationType] = useState<'present' | 'absent'>('absent');
+  const [showWeeklyView, setShowWeeklyView] = useState(false);
 
   const calculatePrediction = () => {
     const stats = getOverallStats();
     const currentPercentage = stats.total > 0 ? (stats.present / stats.total) * 100 : 0;
     
-    // Calculate days remaining in academic session (assuming April to March)
-    const sessionEnd = new Date(2026, 2, 31); // March 31, 2026
+    // Calculate days remaining until target date
+    const sessionEnd = new Date(targetDate);
     const today = new Date();
     const daysRemaining = Math.max(0, Math.ceil((sessionEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
     
-    // Calculate working days (excluding Sundays and holidays)
-    const workingDaysRemaining = Math.floor(daysRemaining * 0.85); // Rough estimate excluding weekends and holidays
+    // Calculate working days (excluding Sundays and holidays) - roughly 85% of total days
+    const workingDaysRemaining = Math.floor(daysRemaining * 0.85);
     
     const totalCurrentDays = includePreviousData ? stats.total : 0;
     const totalPresentDays = includePreviousData ? stats.present : 0;
     
     // Calculate days needed to achieve target
-    const requiredPresentDays = Math.ceil((predictionTarget / 100) * (totalCurrentDays + workingDaysRemaining));
+    const totalFutureDays = totalCurrentDays + workingDaysRemaining;
+    const requiredPresentDays = Math.ceil((predictionTarget / 100) * totalFutureDays);
     const daysNeeded = Math.max(0, requiredPresentDays - totalPresentDays);
+    const presentNeeded = Math.max(0, daysNeeded);
     
     // Calculate confidence score based on current performance
     const performanceRatio = currentPercentage / predictionTarget;
@@ -63,10 +67,18 @@ const Predictor = () => {
     // Check if target is achievable
     const isAchievable = daysNeeded <= workingDaysRemaining;
     
-    // Calculate absents per week/month
-    const absentsAllowed = workingDaysRemaining - daysNeeded;
-    const absentsPerWeek = absentsAllowed / (workingDaysRemaining / 7);
-    const absentsPerMonth = absentsAllowed / (workingDaysRemaining / 30);
+    // Calculate absents allowed
+    const absentsAllowed = Math.max(0, workingDaysRemaining - daysNeeded);
+    const absentsPerWeek = absentsAllowed / Math.max(1, (workingDaysRemaining / 7));
+    const absentsPerMonth = absentsAllowed / Math.max(1, (workingDaysRemaining / 30));
+    
+    // Calculate weekly present needed
+    const weeksRemaining = Math.max(1, workingDaysRemaining / 7);
+    const weeklyPresentNeeded = daysNeeded / weeksRemaining;
+    
+    // Leaves available (separate from working days calculation)
+    const currentLeaves = stats.leave;
+    const leavesAvailable = Math.max(0, 15 - currentLeaves); // Assume 15 leaves per year
 
     // Generate recommendations
     const recommendations = [];
@@ -84,12 +96,15 @@ const Predictor = () => {
     const result: PredictionResult = {
       targetPercentage: predictionTarget,
       currentPercentage,
-      daysNeeded,
+      daysNeeded: Math.round(daysNeeded),
       absentsPerWeek: Math.max(0, absentsPerWeek),
       absentsPerMonth: Math.max(0, absentsPerMonth),
       confidenceScore,
       isAchievable,
-      recommendations
+      recommendations,
+      leavesAvailable: Math.round(leavesAvailable),
+      presentNeeded: Math.round(presentNeeded),
+      weeklyPresentNeeded
     };
 
     setPrediction(result);
@@ -98,32 +113,10 @@ const Predictor = () => {
   const resetPrediction = () => {
     setPrediction(null);
     setPredictionTarget(target);
+    setTargetDate('2026-03-31');
     setIncludePreviousData(true);
-    setCustomHolidays([]);
-    setSimulationDays('');
   };
 
-  const simulateScenario = () => {
-    if (!simulationDays || !prediction) return;
-    
-    const days = parseInt(simulationDays);
-    const stats = getOverallStats();
-    
-    let newPresent = stats.present;
-    let newTotal = stats.total + days;
-    
-    if (simulationType === 'present') {
-      newPresent += days;
-    }
-    
-    const newPercentage = (newPresent / newTotal) * 100;
-    
-    setPrediction({
-      ...prediction,
-      currentPercentage: newPercentage,
-      confidenceScore: Math.min(100, (newPercentage / predictionTarget) * 100)
-    });
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
@@ -168,13 +161,35 @@ const Predictor = () => {
                 />
               </div>
               
-              <div className="flex items-center space-x-2 mt-6">
+              <div>
+                <Label htmlFor="targetDate">Target Date</Label>
+                <Input
+                  id="targetDate"
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
                 <Checkbox
                   id="includePrevious"
                   checked={includePreviousData}
                   onCheckedChange={(checked) => setIncludePreviousData(checked as boolean)}
                 />
                 <Label htmlFor="includePrevious">Include previous attendance data</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="weeklyView">Show weekly view</Label>
+                <Switch
+                  id="weeklyView"
+                  checked={showWeeklyView}
+                  onCheckedChange={setShowWeeklyView}
+                />
               </div>
             </div>
 
@@ -207,7 +222,7 @@ const Predictor = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-muted-foreground">Confidence Score</span>
-                    <span className="font-semibold">{prediction.confidenceScore.toFixed(0)}%</span>
+                    <span className="font-semibold">{Math.round(prediction.confidenceScore)}%</span>
                   </div>
                   <Progress 
                     value={prediction.confidenceScore} 
@@ -217,8 +232,8 @@ const Predictor = () => {
 
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
                   <div>
-                    <p className="text-sm text-muted-foreground">Days Needed</p>
-                    <p className="text-xl font-bold">{prediction.daysNeeded}</p>
+                    <p className="text-sm text-muted-foreground">Present Needed</p>
+                    <p className="text-xl font-bold text-green-500">{prediction.presentNeeded}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
@@ -230,12 +245,20 @@ const Predictor = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Absents/Week</p>
-                    <p className="font-semibold">{prediction.absentsPerWeek.toFixed(1)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {showWeeklyView ? 'Weekly Present' : 'Leaves Available'}
+                    </p>
+                    <p className="font-semibold text-blue-500">
+                      {showWeeklyView ? Math.round(prediction.weeklyPresentNeeded) : prediction.leavesAvailable}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Absents/Month</p>
-                    <p className="font-semibold">{prediction.absentsPerMonth.toFixed(1)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {showWeeklyView ? 'Absents/Week' : 'Absents/Month'}
+                    </p>
+                    <p className="font-semibold text-red-500">
+                      {showWeeklyView ? Math.round(prediction.absentsPerWeek) : Math.round(prediction.absentsPerMonth)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -255,48 +278,33 @@ const Predictor = () => {
           </div>
         )}
 
-        {/* Simulation */}
-        <Card className="p-6 bg-card/50 backdrop-blur-sm">
-          <h3 className="text-lg font-semibold mb-4">Simulate Scenarios</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="simDays">Number of Days</Label>
-              <Input
-                id="simDays"
-                type="number"
-                min="1"
-                value={simulationDays}
-                onChange={(e) => setSimulationDays(e.target.value)}
-                placeholder="e.g., 5"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Scenario Type</Label>
-              <div className="flex gap-2 mt-1">
-                <Button
-                  variant={simulationType === 'present' ? 'default' : 'outline'}
-                  onClick={() => setSimulationType('present')}
-                  size="sm"
-                >
-                  Present
-                </Button>
-                <Button
-                  variant={simulationType === 'absent' ? 'default' : 'outline'}
-                  onClick={() => setSimulationType('absent')}
-                  size="sm"
-                >
-                  Absent
-                </Button>
+        {/* Target Dashboard */}
+        {prediction && (
+          <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Target Dashboard
+            </h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-background/50 rounded-xl">
+                <div className="text-2xl font-bold text-green-500">{prediction.presentNeeded}</div>
+                <div className="text-sm text-muted-foreground">Days to Present</div>
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-xl">
+                <div className="text-2xl font-bold text-red-500">{Math.round(prediction.absentsPerMonth)}</div>
+                <div className="text-sm text-muted-foreground">Absents Allowed</div>
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-xl">
+                <div className="text-2xl font-bold text-blue-500">{prediction.leavesAvailable}</div>
+                <div className="text-sm text-muted-foreground">Leaves Available</div>
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-xl">
+                <div className="text-2xl font-bold text-amber-500">{Math.round(prediction.weeklyPresentNeeded)}</div>
+                <div className="text-sm text-muted-foreground">Weekly Target</div>
               </div>
             </div>
-            <div className="flex items-end">
-              <Button onClick={simulateScenario} disabled={!simulationDays || !prediction}>
-                Simulate
-              </Button>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Prediction Calendar */}
         {prediction && (

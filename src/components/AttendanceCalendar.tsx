@@ -66,17 +66,17 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   const getStatusClasses = (status: string) => {
     switch (status) {
       case 'present':
-        return 'bg-green-500 text-white shadow-lg shadow-green-500/20';
+        return 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/50';
       case 'absent':
-        return 'bg-red-500 text-white shadow-lg shadow-red-500/20';
+        return 'bg-gradient-to-br from-red-400 to-red-600 text-white shadow-xl shadow-red-500/30 hover:shadow-red-500/50';
       case 'leave':
-        return 'bg-blue-500 text-white shadow-lg shadow-blue-500/20';
+        return 'bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50';
       case 'holiday':
-        return 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/20';
+        return 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-xl shadow-amber-500/30 hover:shadow-amber-500/50';
       case 'sunday':
-        return 'bg-yellow-400 text-white shadow-lg shadow-yellow-400/20';
+        return 'bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-xl shadow-purple-500/30 hover:shadow-purple-500/50';
       default:
-        return 'bg-muted hover:bg-muted/80 text-muted-foreground border border-border/50';
+        return 'glass-card hover:bg-primary/10 text-muted-foreground border-2 border-dashed border-border/50 hover:border-primary/30';
     }
   };
 
@@ -97,55 +97,62 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
         key={day}
         onClick={() => onDateClick(dateStr)}
         className={`
-          w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 
-          hover:scale-105 active:scale-95 flex items-center justify-center
+          w-12 h-12 rounded-2xl text-sm font-bold transition-all duration-300 
+          hover:scale-110 active:scale-95 flex items-center justify-center
+          transform hover:rotate-3 hover:z-10 relative
           ${getStatusClasses(status)}
         `}
       >
-        {day}
+        <span className="relative z-10">{day}</span>
+        {/* Glow effect */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
       </button>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 bg-vector">
       {/* Calendar Header */}
       <div className="flex items-center justify-between">
-        <h4 className="text-lg font-semibold">{monthName}</h4>
+        <h4 className="text-xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
+          {monthName}
+        </h4>
         <div className="flex gap-1">
-          <Button variant="ghost" size="sm" onClick={previousMonth}>
+          <Button variant="ghost" size="sm" onClick={previousMonth} className="hover-glow rounded-xl">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={nextMonth}>
+          <Button variant="ghost" size="sm" onClick={nextMonth} className="hover-glow rounded-xl">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* Day Headers */}
-      <div className="grid grid-cols-7 gap-2 text-center text-sm font-medium text-muted-foreground">
+      <div className="grid grid-cols-7 gap-3 text-center text-sm font-semibold text-muted-foreground">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div key={day} className="py-2">{day}</div>
+          <div key={day} className="py-3 px-2 bg-muted/30 rounded-lg backdrop-blur-sm">{day}</div>
         ))}
       </div>
 
       {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-3">
         {days}
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs">
+      <div className="flex flex-wrap gap-6 text-sm glass-card p-4 rounded-2xl">
         {[
-          { status: 'present', color: 'bg-green-500', label: 'Present' },
-          { status: 'absent', color: 'bg-red-500', label: 'Absent' },
-          { status: 'leave', color: 'bg-blue-500', label: 'Leave' },
-          { status: 'holiday', color: 'bg-yellow-500', label: 'Holiday' },
-          { status: 'pending', color: 'bg-muted border', label: 'Pending' }
-        ].map(({ status, color, label }) => (
-          <div key={status} className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded ${color}`} />
-            <span className="text-muted-foreground">{label}</span>
+          { status: 'present', color: 'bg-emerald-500', label: 'Present', icon: '✓' },
+          { status: 'absent', color: 'bg-red-500', label: 'Absent', icon: '✗' },
+          { status: 'leave', color: 'bg-blue-500', label: 'Leave', icon: '🏖️' },
+          { status: 'holiday', color: 'bg-amber-500', label: 'Holiday', icon: '🎉' },
+          { status: 'pending', color: 'bg-muted border-2 border-dashed', label: 'Pending', icon: '⏳' }
+        ].map(({ status, color, label, icon }) => (
+          <div key={status} className="flex items-center gap-3 hover-glow p-2 rounded-lg">
+            <div className={`w-4 h-4 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold`}>
+              {icon}
+            </div>
+            <span className="text-muted-foreground font-medium">{label}</span>
           </div>
         ))}
       </div>

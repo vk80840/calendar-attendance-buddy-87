@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Bell, Download, Settings, Plus, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import AttendanceCalendar from './AttendanceCalendar';
 import AttendanceChart from './AttendanceChart';
+import AttendanceDropdown from './AttendanceDropdown';
 import { useAttendanceStore } from '@/hooks/useAttendanceStore';
 
 const Dashboard = () => {
@@ -22,7 +22,7 @@ const Dashboard = () => {
   } = useAttendanceStore();
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showMarkModal, setShowMarkModal] = useState(false);
+  const [showMarkDropdown, setShowMarkDropdown] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -31,15 +31,20 @@ const Dashboard = () => {
 
   const handleDateClick = (date: string) => {
     setSelectedDate(date);
-    setShowMarkModal(true);
+    setShowMarkDropdown(true);
   };
 
   const handleMarkAttendance = (status: 'present' | 'absent' | 'leave' | 'holiday') => {
     if (selectedDate) {
       markAttendance(selectedDate, status);
-      setShowMarkModal(false);
+      setShowMarkDropdown(false);
       setSelectedDate(null);
     }
+  };
+
+  const handleCloseDropdown = () => {
+    setShowMarkDropdown(false);
+    setSelectedDate(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -108,8 +113,10 @@ const Dashboard = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">{stat.label}</p>
                   <p className="text-2xl font-bold">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {monthStats.total > 0 ? Math.round((stat.value / monthStats.total) * 100) : 0}%
+                   <p className="text-xs text-muted-foreground">
+                    {(stat.label === 'Present' || stat.label === 'Absent') && monthStats.total > 0 
+                      ? Math.round((stat.value / monthStats.total) * 100) 
+                      : 0}%
                   </p>
                 </div>
                 <div className={`w-3 h-3 rounded-full ${stat.color}`} />
@@ -218,38 +225,14 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Mark Attendance Modal */}
-      <Dialog open={showMarkModal} onOpenChange={setShowMarkModal}>
-        <DialogContent className="bg-card/90 backdrop-blur-xl">
-          <DialogHeader>
-            <DialogTitle>Mark Attendance</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              {selectedDate && new Date(selectedDate).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </p>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            {[
-              { status: 'present', label: 'Present', color: 'bg-green-500 hover:bg-green-600' },
-              { status: 'absent', label: 'Absent', color: 'bg-red-500 hover:bg-red-600' },
-              { status: 'leave', label: 'Leave', color: 'bg-blue-500 hover:bg-blue-600' },
-              { status: 'holiday', label: 'Holiday', color: 'bg-yellow-500 hover:bg-yellow-600' }
-            ].map((option) => (
-              <Button
-                key={option.status}
-                onClick={() => handleMarkAttendance(option.status as any)}
-                className={`${option.color} text-white border-0`}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Mark Attendance Dropdown */}
+      {showMarkDropdown && selectedDate && (
+        <AttendanceDropdown
+          selectedDate={selectedDate}
+          onMarkAttendance={handleMarkAttendance}
+          onClose={handleCloseDropdown}
+        />
+      )}
     </div>
   );
 };
